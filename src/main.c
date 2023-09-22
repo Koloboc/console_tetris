@@ -7,7 +7,7 @@
 #include "shape.h"
 
 #define FLD_HEIGHT 20
-#define FLD_WIDTH  30
+#define FLD_WIDTH  20
 
 
 enum _direction{
@@ -25,11 +25,15 @@ typedef struct _Shape{
 	int y;
 }Shape;
 
+int score = 0;
+int level = 0;
+
 char fld[FLD_HEIGHT][FLD_WIDTH + 1];
 char lines[FLD_HEIGHT][FLD_WIDTH + 1];
 
 
 int collision(Shape*, int, int);
+int move(Shape *shape, int dir);
 
 void rotate_shape(Shape *shape, int rot){
 	Shape sh;
@@ -43,7 +47,7 @@ void rotate_shape(Shape *shape, int rot){
 					shape->x--;
 				if(x + shape->x <= 0)
 					shape->x++;
-				if(lines[shape->y + y][shape->x + x] != ' ')
+				if(lines[shape->y + y][shape->x + x] != CHAR_EMPTY)
 					return;
 
 				sh.points[ind] = shape->points[(MAX_POINTS - x - 1) * MAX_POINTS + y ];
@@ -57,9 +61,9 @@ void rotate_shape(Shape *shape, int rot){
 }
 
 void init_shape(Shape *shape, int x, int y){
-	int rotate = rand() % 4;
+	int rotate = rand() % 3;
 
-	shape->symbol = 'Q';
+	shape->symbol = CHAR_SHAPE;
 	shape->x = x;
 	shape->y = y;
 	memcpy(shape->points, shapes[rand() % MAX_SHAPES], MPP);
@@ -68,52 +72,63 @@ void init_shape(Shape *shape, int x, int y){
 
 void fool_lines(){
 
-	for(int y = FLD_HEIGHT - 1; y > 1; y--) {
+	int y = FLD_HEIGHT - 1;
+
+	while(y){
+	//for(int y = FLD_HEIGHT - 1; y > 1; y--) {
 		int del_line = 1;
 		for(int x = 1; x < FLD_WIDTH - 2; x++){
-			if(lines[y][x] == ' '){
+			if(lines[y][x] == CHAR_EMPTY){
 				del_line = 0;
 				break;
 			}
 		}
 		if(del_line){
 			for(int j = y; j > 0; j--)
-			for(int i = 0; i < FLD_WIDTH; i++){
-				lines[j][i] = lines[j - 1][i];
-			}
+				for(int i = 0; i < FLD_WIDTH; i++){
+					lines[j][i] = lines[j - 1][i];
+				}
+			y++; // Оставляем ту же строку для проверки (поскольку она изменилась)
+			score++;
 		}
+		y--;
 	}
 }
 
-
-
 void clear_fld(){
 	fld[0][0] = '|';
-	fld[0][FLD_WIDTH - 1] = '|';
+	fld[0][FLD_WIDTH - 1] = CHAR_VERTLINE;
 	fld[0][FLD_WIDTH] = '\0';
 
 	for(int i = 1; i < FLD_WIDTH - 1; i++)
-		fld[0][i] = ' ';
+		fld[0][i] = CHAR_EMPTY;
 
 	for(int i = 1; i < FLD_HEIGHT; i++)
 		memcpy((void*)&fld[i][0], (void*)&fld[0][0], FLD_WIDTH);
 
 	for(int i = 1; i < FLD_WIDTH - 1; i++)
-		fld[FLD_HEIGHT - 1][i] = '=';
+		fld[FLD_HEIGHT - 1][i] = CHAR_HORIZLINE;
 }
 
 void init_lines(){
 	lines[0][FLD_WIDTH] = '\0';
 	for(int i = 1; i < FLD_WIDTH - 1; i++)
-		lines[0][i] = ' ';
+		lines[0][i] = CHAR_EMPTY;
 
 	for(int i = 1; i < FLD_HEIGHT; i++)
 		memcpy((void*)&lines[i][0], (void*)&lines[0][0], FLD_WIDTH);
 }
 
 void show_field(){
-	for(int i = 0; i < FLD_HEIGHT; i++)
-		printf("%s\n", fld[i]);
+	for(int i = 0; i < FLD_HEIGHT; i++){
+		if(i == 2){
+			printf("%s  lines: %d\n", fld[i], score);
+		}else if(i == 3){
+			printf("%s  level: %d\n", fld[i], level);
+		}else{
+			printf("%s\n", fld[i]);
+		}
+	}
 }
 
 void put_shape(Shape *shape){
@@ -128,7 +143,7 @@ void put_shape(Shape *shape){
 void put_lines(){
 	for(int y = 1; y < FLD_HEIGHT - 1; y++){
 		for(int x = 1; x < FLD_WIDTH - 1; x++){
-			if(lines[y][x] != ' '){
+			if(lines[y][x] != CHAR_EMPTY){
 				fld[y][x] = lines[y][x];
 			}
 		}
@@ -155,9 +170,9 @@ int collision(Shape *shape, int x, int y){
 
 	for(int j = h; j >= 0; j--){
 		for(int i = 0; i <= w; i++){
-			if(shape->points[j * MAX_POINTS + i] != ' ')
+			if(shape->points[j * MAX_POINTS + i] != CHAR_EMPTY)
 			{
-				if(lines[y + j][x + i] != ' ')
+				if(lines[y + j][x + i] != CHAR_EMPTY)
 					return 1;
 			}
 		}
@@ -169,16 +184,17 @@ void add_shape_lines(Shape *shape){
 	for(int i = 0; i < MAX_POINTS; i++){
 		for(int j = 0; j < MAX_POINTS; j++){
 			if(shape->points[i * MAX_POINTS + j] == 'X')
-				lines[shape->y + i][shape->x + j] = '#';
+				lines[shape->y + i][shape->x + j] = CHAR_LINES;
 		}
 	}
 	fool_lines();
 }
 
 void drop_shape(Shape *shape){
+	while(move(shape, DOWN));
 }
 
-void move(Shape *shape, int dir){
+int move(Shape *shape, int dir){
 	switch(dir){
 		case LEFT:
 			if(!collision(shape, shape->x - 1, shape->y))
@@ -202,12 +218,14 @@ void move(Shape *shape, int dir){
 			}else{
 				add_shape_lines(shape);
 				init_shape(shape, FLD_WIDTH / 2, 0);
+				return 0;
 			}
 			break;
 		case ROTATE:
 			rotate_shape(shape, 1);
 			break;
 	}
+	return 1;
 }
 
 int main(int argc, char **argv){
@@ -253,7 +271,7 @@ int main(int argc, char **argv){
 			if(ch == 'd') move(&obj, RIGHT); // ПРАВО
 			if(ch == 's') move(&obj, DOWN); // ВНИЗ
 			if(ch == 'w') move(&obj, ROTATE); // Поворот
-			if(ch == ' ') move(&obj, DROP); // УПАСТЬ
+			if(ch == ' ') drop_shape(&obj); // УПАСТЬ
 		}
 		//check_fly(&obj);
 	}while(ch != 'q');

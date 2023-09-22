@@ -5,6 +5,11 @@
 #define MAX_POINTS 4
 #define MPP MAX_POINTS * MAX_POINTS
 
+#define CHAR_SHAPE 'X'
+#define CHAR_LINES '#'
+#define CHAR_EMPTY ' '
+#define CHAR_VERTLINE '|'
+#define CHAR_HORIZLINE '='
 
 //#undef MIN
 //#define MIN(a,b) ((a) < (b) ? (a) : (b))
