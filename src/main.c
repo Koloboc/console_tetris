@@ -3,60 +3,89 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <time.h>
+#include "shape.h"
 
 #define FLD_HEIGHT 20
 #define FLD_WIDTH  30
-#define QUANTITY_SHAPES 2
-#define WIDTH_SHAPE 4
-#define HEIGHT_SHAPE 4
 
-#undef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#undef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-typedef struct _TObject{
-	int x,y;
-	int rx,ry;
-	int w,h;
-	int rw,rh;
+enum _direction{
+	LEFT,
+	RIGHT,
+	DOWN,
+	DROP,
+	ROTATE
+};
+
+typedef struct _Shape{
+	char points[MPP];
 	char symbol;
-	int rot;
-	char *shape;
-	int fly;
-} TObject;
+	int x;
+	int y;
+}Shape;
 
 char fld[FLD_HEIGHT][FLD_WIDTH + 1];
-char lines[FLD_HEIGHT - 1][FLD_WIDTH - 2];
+char lines[FLD_HEIGHT][FLD_WIDTH + 1];
 
-char shapes[QUANTITY_SHAPES * (WIDTH_SHAPE * HEIGHT_SHAPE + 1)] = " *   *   *   **  **  **           ";
-//																	              X
 
-void init_object(TObject *obj, int _x, int _y, int _w, int _h, int _rot, char _symbol, char *shape){
-	obj->x = _x;
-	obj->y = _y;
-	obj->w = _w;
-	obj->h = _h;
-	obj->rot = _rot;
-	obj->symbol = _symbol;
-	obj->shape = shape;
-	obj->rx = WIDTH_SHAPE;
-	obj->ry = HEIGHT_SHAPE;
-	obj->rw = 0;
-	obj->rh = 0;
-	obj->fly = 1;
-	for(int y = 0; y < HEIGHT_SHAPE; y++){
-		for(int x = 0; x < WIDTH_SHAPE; x++){
-			if(*(obj->shape + y * HEIGHT_SHAPE + x) == '*'){
-				obj->rx = MIN(x, obj->rx);
-				obj->rw = MAX(x, obj->rw);
+int collision(Shape*, int, int);
+
+void rotate_shape(Shape *shape, int rot){
+	Shape sh;
+	int ind;
+
+	while(rot){
+		for(int y = 0; y < MAX_POINTS; y++){
+			for(int x = 0; x < MAX_POINTS; x++){
+				ind = y * MAX_POINTS + x;
+				if(x + shape->x >= FLD_WIDTH - 1)
+					shape->x--;
+				if(x + shape->x <= 0)
+					shape->x++;
+				if(lines[shape->y + y][shape->x + x] != ' ')
+					return;
+
+				sh.points[ind] = shape->points[(MAX_POINTS - x - 1) * MAX_POINTS + y ];
+			}
+		}
+		for(int i = 0; i < MPP; i++){
+			shape->points[i] = sh.points[i];
+		}
+		rot--;
+	}
+}
+
+void init_shape(Shape *shape, int x, int y){
+	int rotate = rand() % 4;
+
+	shape->symbol = 'Q';
+	shape->x = x;
+	shape->y = y;
+	memcpy(shape->points, shapes[rand() % MAX_SHAPES], MPP);
+	rotate_shape(shape, rotate);
+}
+
+void fool_lines(){
+
+	for(int y = FLD_HEIGHT - 1; y > 1; y--) {
+		int del_line = 1;
+		for(int x = 1; x < FLD_WIDTH - 2; x++){
+			if(lines[y][x] == ' '){
+				del_line = 0;
+				break;
+			}
+		}
+		if(del_line){
+			for(int j = y; j > 0; j--)
+			for(int i = 0; i < FLD_WIDTH; i++){
+				lines[j][i] = lines[j - 1][i];
 			}
 		}
 	}
-	//FILE *fd = fopen("out", "a+");
-	//fprintf(fd, "%d", obj->rw);
-	//fclose(fd);
 }
+
+
 
 void clear_fld(){
 	fld[0][0] = '|';
@@ -73,48 +102,116 @@ void clear_fld(){
 		fld[FLD_HEIGHT - 1][i] = '=';
 }
 
+void init_lines(){
+	lines[0][FLD_WIDTH] = '\0';
+	for(int i = 1; i < FLD_WIDTH - 1; i++)
+		lines[0][i] = ' ';
+
+	for(int i = 1; i < FLD_HEIGHT; i++)
+		memcpy((void*)&lines[i][0], (void*)&lines[0][0], FLD_WIDTH);
+}
+
 void show_field(){
 	for(int i = 0; i < FLD_HEIGHT; i++)
 		printf("%s\n", fld[i]);
 }
 
-void put_object(TObject *obj){
-	for(int h = 0; h < HEIGHT_SHAPE; h++){
-		for(int w = 0; w < WIDTH_SHAPE; w++)
-			if(*(obj->shape + h * HEIGHT_SHAPE + w) == '*')
-				fld [obj->y + h] [obj->x + w] = obj->symbol;
+void put_shape(Shape *shape){
+	for(int i = 0; i < MAX_POINTS; i++){
+		for(int j = 0; j < MAX_POINTS; j++){
+			if(shape->points[ i * MAX_POINTS + j ] == 'X')
+				fld[(shape->y + i)][shape->x + j] = shape->symbol;
+		}
 	}
 }
 
-void move_shape(TObject *obj, int direction){
-	switch(direction){
-		case 0:  // Падение
-			if(obj->y + obj->h != FLD_HEIGHT - 1)
-				obj->y++;
-			break;
-		case 1:  // ЛЕВО
-			if(obj->rx + obj->x != 1)
-				obj->x--;
-			break;
-		case 2:  // ПРАВО
-			if(obj->x + obj->rw != FLD_WIDTH - 2)
-				obj->x++;
-			break;
-		case 3:  // ВНИЗ
-			if(obj->y + obj->h != FLD_HEIGHT - 1)
-				obj->y++;
-			break;
-		default:
-			return;
+void put_lines(){
+	for(int y = 1; y < FLD_HEIGHT - 1; y++){
+		for(int x = 1; x < FLD_WIDTH - 1; x++){
+			if(lines[y][x] != ' '){
+				fld[y][x] = lines[y][x];
+			}
+		}
 	}
 }
 
-void check_fly(TObject *obj){
+int collision(Shape *shape, int x, int y){
+	int w = 0;
+	int h = 0;
+	int l = MAX_POINTS;
 
+	for(int i = MAX_POINTS - 1; i >= 0; i--)
+		for(int j = MAX_POINTS - 1; j >= 0; j--)
+			if(shape->points[i * MAX_POINTS + j] ==  'X'){
+				if(i > h) h = i; // Высота
+				if(j > w) w = j; //break;
+				if(l > j) l = j; // left
+			}
+
+	if((x + w >= FLD_WIDTH - 1) || (x + l <= 0))
+		return 1;
+	if(y + h >= FLD_HEIGHT - 1)
+		return 1;
+
+	for(int j = h; j >= 0; j--){
+		for(int i = 0; i <= w; i++){
+			if(shape->points[j * MAX_POINTS + i] != ' ')
+			{
+				if(lines[y + j][x + i] != ' ')
+					return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+void add_shape_lines(Shape *shape){
+	for(int i = 0; i < MAX_POINTS; i++){
+		for(int j = 0; j < MAX_POINTS; j++){
+			if(shape->points[i * MAX_POINTS + j] == 'X')
+				lines[shape->y + i][shape->x + j] = '#';
+		}
+	}
+	fool_lines();
+}
+
+void drop_shape(Shape *shape){
+}
+
+void move(Shape *shape, int dir){
+	switch(dir){
+		case LEFT:
+			if(!collision(shape, shape->x - 1, shape->y))
+				shape->x--;
+			break;
+		case RIGHT:
+			if(!collision(shape, shape->x + 1, shape->y))
+				shape->x++;
+			break;
+		case DROP:
+			if(!collision(shape, shape->x, shape->y + 1)){
+				shape->y++;
+			}else{
+				add_shape_lines(shape);
+				init_shape(shape, FLD_WIDTH / 2, 0);
+			}
+			break;
+		case DOWN: // Падать вниз
+			if(!collision(shape, shape->x, shape->y + 1)){
+				shape->y++;
+			}else{
+				add_shape_lines(shape);
+				init_shape(shape, FLD_WIDTH / 2, 0);
+			}
+			break;
+		case ROTATE:
+			rotate_shape(shape, 1);
+			break;
+	}
 }
 
 int main(int argc, char **argv){
-	TObject obj;
+	Shape obj;
 	char ch;
 	fd_set fd_r;
 	struct timeval tv;
@@ -125,7 +222,9 @@ int main(int argc, char **argv){
 	newt.c_lflag &= ~(ICANON | ECHO);
 	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-	init_object(&obj, FLD_WIDTH / 2, 0, WIDTH_SHAPE, HEIGHT_SHAPE, 0, '#', &shapes[0]);
+	srand(time(NULL));
+	init_shape(&obj, FLD_WIDTH / 2, 0);
+	init_lines();
 	FD_ZERO(&fd_r);
 	
 	do{
@@ -137,7 +236,8 @@ int main(int argc, char **argv){
 		printf ("\n");
 
 		clear_fld();
-		put_object(&obj);
+		put_shape(&obj);
+		put_lines();
 		show_field();
 
 		int sel = select(1, &fd_r, NULL, NULL, &tv);
@@ -146,14 +246,16 @@ int main(int argc, char **argv){
 			tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 			return 0;
 		}else if( sel == 0){ // 0 - время вышло. не 0 есть ввод
-			move_shape(&obj, 0); // ВНИЗ
+			move(&obj, DOWN); // ВНИЗ
 		}else{
 			read(0, &ch, 1);
-			if(ch == 'a') move_shape(&obj, 1); // ЛЕВО
-			if(ch == 'd') move_shape(&obj, 2); // ПРАВО
-			if(ch == ' ') move_shape(&obj, 3); // УПАСТЬ
+			if(ch == 'a') move(&obj, LEFT); // ЛЕВО
+			if(ch == 'd') move(&obj, RIGHT); // ПРАВО
+			if(ch == 's') move(&obj, DOWN); // ВНИЗ
+			if(ch == 'w') move(&obj, ROTATE); // Поворот
+			if(ch == ' ') move(&obj, DROP); // УПАСТЬ
 		}
-		check_fly(&obj);
+		//check_fly(&obj);
 	}while(ch != 'q');
 
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);

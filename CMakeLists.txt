@@ -12,7 +12,7 @@ message("source = " ${LIST_SOURCES})
 message("headers = " ${LIST_HEADERS})
 
 add_executable(${PROJECT_TARGET} ${ALL_SOURCES})
-#target_include_directories(${PROJECT_TARGET} PRIVATE ${INCLUDES_DIR})
+target_include_directories(${PROJECT_TARGET} PRIVATE ${INCLUDES_DIR})
 
 SET (CMAKE_LIBRARY_OUTPUT_DIRECTORY
 	${CMAKE_CURRENT_SOURCE_DIR}/bin
