@@ -96,6 +96,7 @@ void fool_lines(){
 			score++;
 		}
 	}
+	level = score / UPLEVEL;
 }
 
 void clear_fld(){
@@ -196,10 +197,6 @@ void add_shape_lines(Shape *shape){
 	fool_lines();
 }
 
-void drop_shape(Shape *shape){
-	while(move(shape, DOWN));
-}
-
 int move(Shape *shape, int dir){
 	switch(dir){
 		case LEFT:
@@ -261,7 +258,7 @@ int main(int argc, char **argv){
 	do{
 		FD_SET(0, &fd_r);
 		tv.tv_sec = 0;
-		tv.tv_usec = 1000000;
+		tv.tv_usec = 1000000 - level * 50000;
 
 		printf ("\033[0d\033[2J");
 		printf ("\n");
@@ -285,7 +282,7 @@ int main(int argc, char **argv){
 				if(ch == 'd') move(&obj, RIGHT); // ПРАВО
 				if(ch == 's') move(&obj, DOWN); // ВНИЗ
 				if(ch == 'w') move(&obj, ROTATE); // Поворот
-				if(ch == ' ') drop_shape(&obj); // УПАСТЬ
+				if(ch == ' ') while(move(&obj, DOWN)); // УПАСТЬ
 			}
 			if(ch == 'p') m_pause *= -1; // PAUSE
 		}
