@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <time.h>
+#include <locale.h>
 #include "shape.h"
 
 #define FLD_HEIGHT 20
@@ -27,6 +28,8 @@ typedef struct _Shape{
 
 int score = 0;
 int level = 0;
+int m_pause = -1;
+struct termios oldt, newt;
 
 char fld[FLD_HEIGHT][FLD_WIDTH + 1];
 char lines[FLD_HEIGHT][FLD_WIDTH + 1];
@@ -34,6 +37,7 @@ char lines[FLD_HEIGHT][FLD_WIDTH + 1];
 
 int collision(Shape*, int, int);
 int move(Shape *shape, int dir);
+int the_end();
 
 void rotate_shape(Shape *shape, int rot){
 	Shape sh;
@@ -68,18 +72,19 @@ void init_shape(Shape *shape, int x, int y){
 	shape->y = y;
 	memcpy(shape->points, shapes[rand() % MAX_SHAPES], MPP);
 	rotate_shape(shape, rotate);
+	if(collision(shape, shape->x, shape->y + 1))
+		the_end();
 }
 
+// Удаление полных линий
 void fool_lines(){
-
 	int y = FLD_HEIGHT - 1;
-
 	while(y){
-	//for(int y = FLD_HEIGHT - 1; y > 1; y--) {
 		int del_line = 1;
 		for(int x = 1; x < FLD_WIDTH - 2; x++){
 			if(lines[y][x] == CHAR_EMPTY){
 				del_line = 0;
+				y--;
 				break;
 			}
 		}
@@ -88,10 +93,8 @@ void fool_lines(){
 				for(int i = 0; i < FLD_WIDTH; i++){
 					lines[j][i] = lines[j - 1][i];
 				}
-			y++; // Оставляем ту же строку для проверки (поскольку она изменилась)
 			score++;
 		}
-		y--;
 	}
 }
 
@@ -155,6 +158,7 @@ int collision(Shape *shape, int x, int y){
 	int h = 0;
 	int l = MAX_POINTS;
 
+	// Измеряем ширину, высоту, левый край
 	for(int i = MAX_POINTS - 1; i >= 0; i--)
 		for(int j = MAX_POINTS - 1; j >= 0; j--)
 			if(shape->points[i * MAX_POINTS + j] ==  'X'){
@@ -163,11 +167,13 @@ int collision(Shape *shape, int x, int y){
 				if(l > j) l = j; // left
 			}
 
+	// Крвя и низ стакана
 	if((x + w >= FLD_WIDTH - 1) || (x + l <= 0))
 		return 1;
 	if(y + h >= FLD_HEIGHT - 1)
 		return 1;
 
+	// столкновения с lines
 	for(int j = h; j >= 0; j--){
 		for(int i = 0; i <= w; i++){
 			if(shape->points[j * MAX_POINTS + i] != CHAR_EMPTY)
@@ -228,27 +234,34 @@ int move(Shape *shape, int dir){
 	return 1;
 }
 
+int the_end(){
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+	printf("THE END\n");
+	exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char **argv){
 	Shape obj;
 	char ch;
 	fd_set fd_r;
 	struct timeval tv;
 
-	struct termios oldt, newt;
 	tcgetattr(STDIN_FILENO, &oldt);
 	newt = oldt;
 	newt.c_lflag &= ~(ICANON | ECHO);
 	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
+	setlocale(LC_ALL, "");
+
 	srand(time(NULL));
-	init_shape(&obj, FLD_WIDTH / 2, 0);
 	init_lines();
+	init_shape(&obj, FLD_WIDTH / 2, 0);
 	FD_ZERO(&fd_r);
 	
 	do{
 		FD_SET(0, &fd_r);
 		tv.tv_sec = 0;
-		tv.tv_usec = 500000;
+		tv.tv_usec = 1000000;
 
 		printf ("\033[0d\033[2J");
 		printf ("\n");
@@ -264,19 +277,20 @@ int main(int argc, char **argv){
 			tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 			return 0;
 		}else if( sel == 0){ // 0 - время вышло. не 0 есть ввод
-			move(&obj, DOWN); // ВНИЗ
+			if(m_pause < 0) move(&obj, DOWN); // ВНИЗ
 		}else{
 			read(0, &ch, 1);
-			if(ch == 'a') move(&obj, LEFT); // ЛЕВО
-			if(ch == 'd') move(&obj, RIGHT); // ПРАВО
-			if(ch == 's') move(&obj, DOWN); // ВНИЗ
-			if(ch == 'w') move(&obj, ROTATE); // Поворот
-			if(ch == ' ') drop_shape(&obj); // УПАСТЬ
+			if(m_pause < 0){
+				if(ch == 'a') move(&obj, LEFT); // ЛЕВО
+				if(ch == 'd') move(&obj, RIGHT); // ПРАВО
+				if(ch == 's') move(&obj, DOWN); // ВНИЗ
+				if(ch == 'w') move(&obj, ROTATE); // Поворот
+				if(ch == ' ') drop_shape(&obj); // УПАСТЬ
+			}
+			if(ch == 'p') m_pause *= -1; // PAUSE
 		}
-		//check_fly(&obj);
 	}while(ch != 'q');
 
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-	return 0;
+	return the_end();
 }
 
