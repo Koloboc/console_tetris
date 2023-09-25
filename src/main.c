@@ -29,6 +29,7 @@ typedef struct _Shape{
 int score = 0;
 int level = 0;
 int m_pause = -1;
+Shape next;
 struct termios oldt, newt;
 
 char fld[FLD_HEIGHT][FLD_WIDTH + 1];
@@ -72,8 +73,6 @@ void init_shape(Shape *shape, int x, int y){
 	shape->y = y;
 	memcpy(shape->points, shapes[rand() % MAX_SHAPES], MPP);
 	rotate_shape(shape, rotate);
-	if(collision(shape, shape->x, shape->y + 1))
-		the_end();
 }
 
 // Удаление полных линий
@@ -129,6 +128,8 @@ void show_field(){
 			printf("%s  lines: %d\n", fld[i], score);
 		}else if(i == 3){
 			printf("%s  level: %d\n", fld[i], level);
+		}else if(i >= 4 && i < 8){
+			printf("%s  %c%c%c%c\n", fld[i], next.points[(i - 4) * MAX_POINTS], next.points[(i - 4) * MAX_POINTS + 1], next.points[(i - 4) * MAX_POINTS + 2], next.points[(i - 4) * MAX_POINTS + 3]);
 		}else{
 			printf("%s\n", fld[i]);
 		}
@@ -207,20 +208,16 @@ int move(Shape *shape, int dir){
 			if(!collision(shape, shape->x + 1, shape->y))
 				shape->x++;
 			break;
-		case DROP:
-			if(!collision(shape, shape->x, shape->y + 1)){
-				shape->y++;
-			}else{
-				add_shape_lines(shape);
-				init_shape(shape, FLD_WIDTH / 2, 0);
-			}
-			break;
 		case DOWN: // Падать вниз
 			if(!collision(shape, shape->x, shape->y + 1)){
 				shape->y++;
 			}else{
 				add_shape_lines(shape);
-				init_shape(shape, FLD_WIDTH / 2, 0);
+				memcpy(shape->points, next.points, MPP);
+				shape->x = next.x;
+				shape->y = next.y;
+				shape->symbol = next.symbol;
+				init_shape(&next, FLD_WIDTH / 2, 0);
 				return 0;
 			}
 			break;
@@ -253,6 +250,7 @@ int main(int argc, char **argv){
 	srand(time(NULL));
 	init_lines();
 	init_shape(&obj, FLD_WIDTH / 2, 0);
+	init_shape(&next, FLD_WIDTH / 2, 0);
 	FD_ZERO(&fd_r);
 	
 	do{
