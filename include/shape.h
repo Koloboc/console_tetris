@@ -1,54 +1,74 @@
 #ifndef _SHAPE_H_
 #define _SHAPE_H_
 
+#include <wchar.h>
+
 #define MAX_SHAPES 7
 #define MAX_POINTS 4
 #define MPP MAX_POINTS * MAX_POINTS
 
-#define CHAR_SHAPE 'X'
-#define CHAR_LINES '#'
-#define CHAR_EMPTY ' '
-#define CHAR_VERTLINE '|'
-#define CHAR_HORIZLINE '='
+const wchar_t SHAPE_SYMBOL = 88; // '#'
+const wchar_t CHAR_LINES = 88;   // '#'
+const wchar_t CHAR_EMPTY = 32;   // ' ';
+const wchar_t CHAR_VERTLINE = L'|';
+const wchar_t CHAR_HORIZLINE = L'=';
 
 #define UPLEVEL 5
 
+typedef struct Shape{
+	wchar_t points[MPP];
+	int x;
+	int y;
+}Shape;
 
-char shapes[MAX_SHAPES][MAX_POINTS * MAX_POINTS] = {
-	{' ', 'X', ' ', ' ', 
-	 ' ', 'X', ' ', ' ', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', ' ', ' ', ' '}, // L
+void rotate_shape(Shape *shape, int rot);
+void init_shape(Shape *shape, int x, int y);
+void fool_lines();
+void clear_fld();
+void init_lines();
+void show_field();
+void put_shape(Shape *shape);
+void put_lines();
+int collision(Shape *shape, int x, int y);
+void add_shape_lines(Shape *shape);
+int move(Shape *shape, int dir);
+int the_end();
 
-	{' ', ' ', 'X', ' ', 
-	 ' ', ' ', 'X', ' ', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', ' ', ' ', ' '}, // Г
+wchar_t shapes[MAX_SHAPES][MAX_POINTS * MAX_POINTS] = {
+	{L' ', L'X', L' ', L' ', 
+	 L' ', L'X', L' ', L' ', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L' ', L' ', L' '}, // L
 
-	{' ', ' ', ' ', ' ', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', ' ', 'X', 'X', 
-	 ' ', ' ', ' ', ' '}, // Z
+	{L' ', L' ', L'X', L' ', 
+	 L' ', L' ', L'X', L' ', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L' ', L' ', L' '}, // Г
 
-	{' ', ' ', ' ', ' ', 
-	 ' ', ' ', 'X', 'X', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', ' ', ' ', ' '}, // ~Z
+	{L' ', L' ', L' ', L' ', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L' ', L'X', L'X', 
+	 L' ', L' ', L' ', L' '}, // Z
 
-	{' ','X', ' ', ' ',
-	 ' ','X', ' ', ' ', 
-	 ' ','X', ' ', ' ', 
-	 ' ','X', ' ', ' '}, // V - Line
+	{L' ', L' ', L' ', L' ', 
+	 L' ', L' ', L'X', L'X', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L' ', L' ', L' '}, // ~Z
 
-	{' ', ' ', ' ', ' ', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', 'X', 'X', ' ', 
-	 ' ', ' ', ' ', ' '}, // Cube
+	{L' ', L'X', L' ', L' ',
+	 L' ', L'X', L' ', L' ', 
+	 L' ', L'X', L' ', L' ', 
+	 L' ', L'X', L' ', L' '}, // V - Line
 
-	{' ', ' ', ' ', ' ', 
-	 ' ', 'X', 'X', 'X', 
-	 ' ', ' ', 'X', ' ', 
-	 ' ', ' ', ' ', ' '}, // T
+	{L' ', L' ', L' ', L' ', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L'X', L'X', L' ', 
+	 L' ', L' ', L' ', L' '}, // Cube
+
+	{L' ', L' ', L' ', L' ', 
+	 L' ', L'X', L'X', L'X', 
+	 L' ', L' ', L'X', L' ', 
+	 L' ', L' ', L' ', L' '}, // T
 
 };
 

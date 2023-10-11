@@ -5,11 +5,11 @@
 #include <unistd.h>
 #include <time.h>
 #include <locale.h>
+#include <wchar.h>
 #include "shape.h"
 
 #define FLD_HEIGHT 20
 #define FLD_WIDTH  20
-
 
 enum _direction{
 	LEFT,
@@ -19,48 +19,31 @@ enum _direction{
 	ROTATE
 };
 
-typedef struct _Shape{
-	char points[MPP];
-	char symbol;
-	int x;
-	int y;
-}Shape;
-
 int score = 0;
 int level = 0;
 int m_pause = -1;
 Shape next;
 struct termios oldt, newt;
 
-char fld[FLD_HEIGHT][FLD_WIDTH + 1];
-char lines[FLD_HEIGHT][FLD_WIDTH + 1];
-
-
-int collision(Shape*, int, int);
-int move(Shape *shape, int dir);
-int the_end();
+wchar_t fld[FLD_HEIGHT][FLD_WIDTH + 1];
+wchar_t lines[FLD_HEIGHT][FLD_WIDTH];
 
 void rotate_shape(Shape *shape, int rot){
 	Shape sh;
-	int ind;
-
 	while(rot){
 		for(int y = 0; y < MAX_POINTS; y++){
 			for(int x = 0; x < MAX_POINTS; x++){
-				ind = y * MAX_POINTS + x;
 				if(x + shape->x >= FLD_WIDTH - 1)
 					shape->x--;
 				if(x + shape->x <= 0)
 					shape->x++;
-				if(lines[shape->y + y][shape->x + x] != CHAR_EMPTY)
+				if(lines[shape->y + y][shape->x + x] == CHAR_LINES)
 					return;
 
-				sh.points[ind] = shape->points[(MAX_POINTS - x - 1) * MAX_POINTS + y ];
+				sh.points[y * MAX_POINTS + x] = shape->points[x * MAX_POINTS + ((MAX_POINTS - 1) - y)];
 			}
 		}
-		for(int i = 0; i < MPP; i++){
-			shape->points[i] = sh.points[i];
-		}
+		wcsncpy(shape->points, sh.points, MPP);
 		rot--;
 	}
 }
@@ -68,10 +51,9 @@ void rotate_shape(Shape *shape, int rot){
 void init_shape(Shape *shape, int x, int y){
 	int rotate = rand() % 3;
 
-	shape->symbol = CHAR_SHAPE;
 	shape->x = x;
 	shape->y = y;
-	memcpy(shape->points, shapes[rand() % MAX_SHAPES], MPP);
+	memcpy(shape->points, shapes[rand() % MAX_SHAPES],  sizeof(wchar_t) * MPP);
 	rotate_shape(shape, rotate);
 }
 
@@ -81,7 +63,7 @@ void fool_lines(){
 	while(y){
 		int del_line = 1;
 		for(int x = 1; x < FLD_WIDTH - 2; x++){
-			if(lines[y][x] == CHAR_EMPTY){
+			if(lines[y][x] != CHAR_LINES){
 				del_line = 0;
 				y--;
 				break;
@@ -99,15 +81,14 @@ void fool_lines(){
 }
 
 void clear_fld(){
-	fld[0][0] = '|';
+	fld[0][0] = CHAR_VERTLINE;
 	fld[0][FLD_WIDTH - 1] = CHAR_VERTLINE;
-	fld[0][FLD_WIDTH] = '\0';
 
 	for(int i = 1; i < FLD_WIDTH - 1; i++)
 		fld[0][i] = CHAR_EMPTY;
 
 	for(int i = 1; i < FLD_HEIGHT; i++)
-		memcpy((void*)&fld[i][0], (void*)&fld[0][0], FLD_WIDTH);
+		wcsncpy((void*)&fld[i][0], (void*)&fld[0][0], FLD_WIDTH);
 
 	for(int i = 1; i < FLD_WIDTH - 1; i++)
 		fld[FLD_HEIGHT - 1][i] = CHAR_HORIZLINE;
@@ -119,28 +100,31 @@ void init_lines(){
 		lines[0][i] = CHAR_EMPTY;
 
 	for(int i = 1; i < FLD_HEIGHT; i++)
-		memcpy((void*)&lines[i][0], (void*)&lines[0][0], FLD_WIDTH);
+		wcsncpy(lines[i], lines[0], FLD_WIDTH - 1);
 }
 
 void show_field(){
 	for(int i = 0; i < FLD_HEIGHT; i++){
 		if(i == 2){
-			printf("%s  lines: %d\n", fld[i], score);
+			wprintf(L"%ls  lines: %d", fld[i], score);
 		}else if(i == 3){
-			printf("%s  level: %d\n", fld[i], level);
+			wprintf(L"%ls  level: %d", fld[i], level);
 		}else if(i >= 4 && i < 8){
-			printf("%s  %c%c%c%c\n", fld[i], next.points[(i - 4) * MAX_POINTS], next.points[(i - 4) * MAX_POINTS + 1], next.points[(i - 4) * MAX_POINTS + 2], next.points[(i - 4) * MAX_POINTS + 3]);
+			wprintf(L"%ls  ", fld[i]);
+			for(int n = 0; n < MAX_POINTS; n++)
+				wprintf(L"%c", next.points[(i - MAX_POINTS) * MAX_POINTS + n]);
 		}else{
-			printf("%s\n", fld[i]);
+			wprintf(L"%ls", fld[i]);
 		}
+		wprintf(L"\n");
 	}
 }
 
 void put_shape(Shape *shape){
 	for(int i = 0; i < MAX_POINTS; i++){
 		for(int j = 0; j < MAX_POINTS; j++){
-			if(shape->points[ i * MAX_POINTS + j ] == 'X')
-				fld[(shape->y + i)][shape->x + j] = shape->symbol;
+			if(shape->points[ i * MAX_POINTS + j ] == L'X')
+				fld[(shape->y + i)][shape->x + j] = SHAPE_SYMBOL;
 		}
 	}
 }
@@ -148,8 +132,8 @@ void put_shape(Shape *shape){
 void put_lines(){
 	for(int y = 1; y < FLD_HEIGHT - 1; y++){
 		for(int x = 1; x < FLD_WIDTH - 1; x++){
-			if(lines[y][x] != CHAR_EMPTY){
-				fld[y][x] = lines[y][x];
+			if(lines[y][x] == CHAR_LINES){
+				fld[y][x] = CHAR_LINES;
 			}
 		}
 	}
@@ -158,19 +142,20 @@ void put_lines(){
 int collision(Shape *shape, int x, int y){
 	int w = 0;
 	int h = 0;
-	int l = MAX_POINTS;
+	int left = MAX_POINTS;
+	wchar_t *points = shape->points;
 
 	// Измеряем ширину, высоту, левый край
-	for(int i = MAX_POINTS - 1; i >= 0; i--)
-		for(int j = MAX_POINTS - 1; j >= 0; j--)
-			if(shape->points[i * MAX_POINTS + j] ==  'X'){
+	for(int i = MAX_POINTS - 1; i >= 0; i -= 1)
+		for(int j = MAX_POINTS - 1; j >= 0; j -= 1)
+			if(points[i * MAX_POINTS + j] != CHAR_EMPTY){
 				if(i > h) h = i; // Высота
 				if(j > w) w = j; //break;
-				if(l > j) l = j; // left
+				if(left > j) left = j; // left
 			}
 
 	// Крвя и низ стакана
-	if((x + w >= FLD_WIDTH - 1) || (x + l <= 0))
+	if((x + w >= FLD_WIDTH - 1) || (x + left <= 0))
 		return 1;
 	if(y + h >= FLD_HEIGHT - 1)
 		return 1;
@@ -178,9 +163,8 @@ int collision(Shape *shape, int x, int y){
 	// столкновения с lines
 	for(int j = h; j >= 0; j--){
 		for(int i = 0; i <= w; i++){
-			if(shape->points[j * MAX_POINTS + i] != CHAR_EMPTY)
-			{
-				if(lines[y + j][x + i] != CHAR_EMPTY)
+			if(points[j * MAX_POINTS + i] != CHAR_EMPTY) {
+				if(lines[y + j][x + i] == CHAR_LINES)
 					return 1;
 			}
 		}
@@ -191,7 +175,7 @@ int collision(Shape *shape, int x, int y){
 void add_shape_lines(Shape *shape){
 	for(int i = 0; i < MAX_POINTS; i++){
 		for(int j = 0; j < MAX_POINTS; j++){
-			if(shape->points[i * MAX_POINTS + j] == 'X')
+			if(shape->points[i * MAX_POINTS + j] == SHAPE_SYMBOL)
 				lines[shape->y + i][shape->x + j] = CHAR_LINES;
 		}
 	}
@@ -213,10 +197,10 @@ int move(Shape *shape, int dir){
 				shape->y++;
 			}else{
 				add_shape_lines(shape);
-				memcpy(shape->points, next.points, MPP);
+				wcsncpy(shape->points, next.points, MPP);
+				//memcpy(shape->points, next.points, sizeof(wchar_t) * MPP);
 				shape->x = next.x;
 				shape->y = next.y;
-				shape->symbol = next.symbol;
 				init_shape(&next, FLD_WIDTH / 2, 0);
 				return 0;
 			}
@@ -230,7 +214,9 @@ int move(Shape *shape, int dir){
 
 int the_end(){
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-	printf("THE END\n");
+	wprintf(L"THE END\n");
+	//for(int h = 0; FLD_HEIGHT - 1; h++)
+		//wprintf(L"%s\n", fld[h]);
 	exit(EXIT_SUCCESS);
 }
 
@@ -240,12 +226,13 @@ int main(int argc, char **argv){
 	fd_set fd_r;
 	struct timeval tv;
 
+	setlocale(LC_ALL, "");
+
 	tcgetattr(STDIN_FILENO, &oldt);
 	newt = oldt;
 	newt.c_lflag &= ~(ICANON | ECHO);
 	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-	setlocale(LC_ALL, "");
 
 	srand(time(NULL));
 	init_lines();
@@ -258,8 +245,8 @@ int main(int argc, char **argv){
 		tv.tv_sec = 0;
 		tv.tv_usec = 1000000 - level * 50000;
 
-		printf ("\033[0d\033[2J");
-		printf ("\n");
+		wprintf (L"\033[0d\033[2J");
+		wprintf (L"\n");
 
 		clear_fld();
 		put_shape(&obj);
@@ -269,8 +256,7 @@ int main(int argc, char **argv){
 		int sel = select(1, &fd_r, NULL, NULL, &tv);
 		if(sel == -1){
 			perror("select:");
-			tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-			return 0;
+			the_end();
 		}else if( sel == 0){ // 0 - время вышло. не 0 есть ввод
 			if(m_pause < 0) move(&obj, DOWN); // ВНИЗ
 		}else{
@@ -286,6 +272,7 @@ int main(int argc, char **argv){
 		}
 	}while(ch != 'q');
 
-	return the_end();
+	the_end();
+	return 0;
 }
 
