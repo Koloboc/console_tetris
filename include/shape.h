@@ -7,6 +7,9 @@
 #define MAX_POINTS 4
 #define MPP MAX_POINTS * MAX_POINTS
 
+#define FILE_SCORE "tetris.score"
+#define SCORES 5
+
 const wchar_t SHAPE_SYMBOL = 88; // '#'
 const wchar_t CHAR_LINES = 88;   // '#'
 const wchar_t CHAR_EMPTY = 32;   // ' ';
@@ -21,6 +24,12 @@ typedef struct Shape{
 	int y;
 }Shape;
 
+typedef struct _score{
+	char name[10];
+	int level;
+	int lines;
+}st_score;
+
 void rotate_shape(Shape *shape, int rot);
 void init_shape(Shape *shape, int x, int y);
 void fool_lines();
@@ -32,7 +41,9 @@ void put_lines();
 int collision(Shape *shape, int x, int y);
 void add_shape_lines(Shape *shape);
 int move(Shape *shape, int dir);
-int the_end();
+void save_score(st_score*);
+void read_score(st_score*);
+void print_score(st_score*);
 
 wchar_t shapes[MAX_SHAPES][MAX_POINTS * MAX_POINTS] = {
 	{L' ', L'X', L' ', L' ', 

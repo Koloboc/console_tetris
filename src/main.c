@@ -6,6 +6,11 @@
 #include <time.h>
 #include <locale.h>
 #include <wchar.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <fcntl.h>
+#include <errno.h>
 #include "shape.h"
 
 #define FLD_HEIGHT 20
@@ -212,14 +217,6 @@ int move(Shape *shape, int dir){
 	return 1;
 }
 
-int the_end(){
-	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-	wprintf(L"THE END\n");
-	//for(int h = 0; FLD_HEIGHT - 1; h++)
-		//wprintf(L"%s\n", fld[h]);
-	exit(EXIT_SUCCESS);
-}
-
 int main(int argc, char **argv){
 	Shape obj;
 	char ch;
@@ -256,7 +253,7 @@ int main(int argc, char **argv){
 		int sel = select(1, &fd_r, NULL, NULL, &tv);
 		if(sel == -1){
 			perror("select:");
-			the_end();
+			break;
 		}else if( sel == 0){ // 0 - время вышло. не 0 есть ввод
 			if(m_pause < 0) move(&obj, DOWN); // ВНИЗ
 		}else{
@@ -272,7 +269,66 @@ int main(int argc, char **argv){
 		}
 	}while(ch != 'q');
 
-	the_end();
-	return 0;
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+	//**********************************
+	// S C O R E
+	// =================================
+	st_score s_score[SCORES];
+	memset(s_score, 0, sizeof(st_score) * SCORES);
+
+	read_score(s_score);
+	for(int i = 0; i < SCORES; i++){
+		st_score *sc = s_score + i;
+		if(sc->lines < score){
+			for(int j = SCORES - 1; j >= i; j--)
+				memcpy((s_score + j), (s_score + j - 1), sizeof(st_score));
+			
+			sc->lines = score;
+			sc->level = level;
+			wprintf(L"you name: ");
+			scanf("%10s", sc->name);
+			if(!strlen(sc->name))
+				strcpy(sc->name, "anonymous");
+
+			save_score(s_score);
+			break;
+		}
+	}
+	print_score(s_score);
+
+	exit(EXIT_SUCCESS);
+}
+
+void print_score(st_score *scr){
+	wprintf(L"SCORE:\nname\t\tlines\tlevel\n==============================\n");
+	for(int i = 0; i < SCORES; i++)
+		wprintf(L"%d: %s\t\t%d\t%d\n", i + 1, (scr + i)->name, (scr + i)->lines, (scr + i)->level);
+}
+
+void read_score(st_score *scr){
+	int fi = open(FILE_SCORE, O_RDONLY);
+	if(!fi) return;
+
+	for(int i = 0; i < SCORES; i++){
+		int r_bytes = read(fi, scr + i, sizeof(st_score));	
+		if(r_bytes != sizeof(st_score)) return;
+	}
+	close(fi);
+}
+
+void save_score(st_score *sc){
+
+	int fo = open(FILE_SCORE, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+	if(!fo){
+		wprintf(L"error save score file '%s'\n", FILE_SCORE);
+		return;
+	}
+	int w_bytes = write(fo, sc, sizeof(st_score) * SCORES);
+	if(w_bytes == -1){
+		wprintf(L"error write score (%d)\n", errno);
+		perror("write ");
+	}
+	close(fo);
 }
 
