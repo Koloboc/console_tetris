@@ -236,7 +236,7 @@ int main(int argc, char **argv){
 	init_shape(&obj, FLD_WIDTH / 2, 0);
 	init_shape(&next, FLD_WIDTH / 2, 0);
 	FD_ZERO(&fd_r);
-	
+
 	do{
 		FD_SET(0, &fd_r);
 		tv.tv_sec = 0;
@@ -249,6 +249,8 @@ int main(int argc, char **argv){
 		put_shape(&obj);
 		put_lines();
 		show_field();
+		if(collision(&obj, obj.x, obj.y))
+			break;
 
 		int sel = select(1, &fd_r, NULL, NULL, &tv);
 		if(sel == -1){
@@ -283,7 +285,7 @@ int main(int argc, char **argv){
 		if(sc->lines < score){
 			for(int j = SCORES - 1; j >= i; j--)
 				memcpy((s_score + j), (s_score + j - 1), sizeof(st_score));
-			
+
 			sc->lines = score;
 			sc->level = level;
 			wprintf(L"you name: ");
@@ -311,7 +313,7 @@ void read_score(st_score *scr){
 	if(!fi) return;
 
 	for(int i = 0; i < SCORES; i++){
-		int r_bytes = read(fi, scr + i, sizeof(st_score));	
+		int r_bytes = read(fi, scr + i, sizeof(st_score));
 		if(r_bytes != sizeof(st_score)) return;
 	}
 	close(fi);
